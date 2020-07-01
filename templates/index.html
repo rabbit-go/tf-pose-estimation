@@ -1,0 +1,68 @@
+{% extends "layout.html" %}
+{% block body %}
+
+<video id="player" autoplay></video>
+<canvas width="1280" height="720" id="res-image"></canvas>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.17.1/axios.min.js"></script>
+<script>
+    var player = document.getElementById('player');
+    var resImage = document.getElementById('res-image');
+
+    // Webカメラの起動に少し時間がかかったので、3.5s待たせる
+    function wait() {
+    console.log('Starting...');
+    return new Promise(resolve => setTimeout(resolve, 3500));
+    };
+
+    var handleSuccess = function(stream) {
+    player.srcObject = stream;
+    wait()
+    .then(function() {
+    drawCanvas();
+    captureCanvas();
+    })
+    }
+
+
+    function captureCanvas () {
+    console.log('capture!')
+    // canvasのtoBlobを使い、キャプチャしたデータをblob化
+    snapshotCanvas.toBlob(function(blob) {
+    var formData = new FormData();
+    params = new FormData();
+    params.append('img', blob);
+    // axiosを使ってAPIへPOST
+    axios.post('http://localhost:5000/api/estimator', params, { responseType: 'blob', 'headers': { 'Content-Type': 'image/png' } })
+    .then(function(response) {
+    drawResponseSnapCanvas(response.data);
+
+    // 再帰呼び出し
+    drawCanvas();
+    captureCanvas();
+    });
+    });
+    }
+
+    function drawResponseSnapCanvas (image) {
+    var resImageContext = resImage.getContext('2d');
+    var img = new Image();
+    var reader = new FileReader();
+    var dataUrl;
+    // FileReaderを使ってcanvasへ出力
+    reader.readAsDataURL(image);
+    reader.onloadend = function () {
+    dataUrl = reader.result;
+    img.onload = function () {
+    resImageContext.drawImage(img, 0, 0, resImage.width, resImage.height);
+    }
+    img.src = dataUrl;
+    }
+    }
+
+    // videoタグを使ってWebカメラ起動し、画像取得
+    navigator.mediaDevices.getUserMedia({video: { width: 1280, height: 720 }})
+    .then(handleSuccess);
+
+</script>
+
+{% endblock %}
